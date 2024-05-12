@@ -59,6 +59,8 @@ new gp_blHudEnabled, gp_blEnableGagExpireMsg,
 	gp_szAdminBadWords[MAX_NAME_LENGTH], gp_szAdminAdvertise[MAX_NAME_LENGTH],
 	gp_szReasonBadWords[MAX_NAME_LENGTH], gp_szReasonAdvertise[MAX_NAME_LENGTH]
 
+new g_szPlayerLastMessage[MAX_PLAYERS + 1][192]
+
 
 public plugin_init()
 {
@@ -389,6 +391,8 @@ public client_putinserver(id)
 
 	get_user_name(id, g_szName[id], charsmax(g_szName[]));
 	get_user_ip(id, g_szIP[id], charsmax(g_szIP[]), 1);
+
+	copy(g_szPlayerLastMessage[id], charsmax(g_szPlayerLastMessage[]), "")
 }
 
 public amx_menu_setgagtimes()
@@ -453,8 +457,13 @@ public RG__CBasePlayer_SetClientUserInfoName(id, szInfoBuffer[], szNewName[])
 {
 	if (IsUserGagged(id, false) == GAG_YES)
 	{
-		SetHookChainReturn(ATYPE_INTEGER, false);
+		SetHookChainReturn(ATYPE_BOOL, false);
 		return HC_SUPERCEDE;
+	}
+
+	if (!equal(g_szName[id], szNewName))
+	{
+		copy(g_szName[id], charsmax(g_szName[]), szNewName)
 	}
 	return HC_CONTINUE;
 }
@@ -533,6 +542,8 @@ public CommandSayExecuted(id)
 	{
 		return PLUGIN_HANDLED;
 	}
+
+	copy(g_szPlayerLastMessage[id], charsmax(g_szPlayerLastMessage[]), fmt("\d[\y%s\d]", szMessage))
 
 	return PLUGIN_CONTINUE;
 }
@@ -750,11 +761,11 @@ displayGagMenu(id, iPos)
 
 			if (is_user_admin(i))
 			{
-				iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "%i. %s%s \r* %s^n\w", ++b, IsUserGagged(i, false) ? "\y" : "\w", szName, GetGaggedPlayerInfo(szIP))
+				iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "%i. %s%s \r* %s %s^n\w", ++b, IsUserGagged(i, false) ? "\y" : "\w", szName, GetGaggedPlayerInfo(szIP), IsUserGagged(i, false) ? GetGaggedPlayerInfo_Reason(szIP) : g_szPlayerLastMessage[i])
 			}
 			else
 			{
-				iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen,  "%i. %s%s %s^n\w", ++b, IsUserGagged(i, false) ? "\y" : "\w", szName, GetGaggedPlayerInfo(szIP))
+				iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen,  "%i. %s%s %s %s^n\w", ++b, IsUserGagged(i, false) ? "\y" : "\w", szName, GetGaggedPlayerInfo(szIP), IsUserGagged(i, false) ? GetGaggedPlayerInfo_Reason(szIP) : g_szPlayerLastMessage[i])
 			}
 		}
 	}
@@ -1022,6 +1033,24 @@ stock GetGaggedPlayerInfo(const iPlayerIP[])
 		}
 	}
 	return szGagTimeLeft
+}
+
+stock GetGaggedPlayerInfo_Reason(const iPlayerIP[])
+{
+	new szGaggedName[MAX_NAME_LENGTH], szReason[MAX_REASON_LENGHT], szExpireDate[32], szAdminName[MAX_NAME_LENGTH], szVaultData[512], szReasonFmt[MAX_REASON_LENGHT];
+
+	if (!nvault_get(g_iNVaultHandle, iPlayerIP, szVaultData, charsmax(szVaultData)))
+	{
+		formatex(szReason, charsmax(szReason), "")
+	}
+	else
+	{
+		replace_all(szVaultData, charsmax(szVaultData), "#", " ");
+		parse(szVaultData, szGaggedName, charsmax(szGaggedName), szReason, charsmax(szReason), szExpireDate, charsmax(szExpireDate), szAdminName, charsmax(szAdminName));
+		
+		formatex(szReasonFmt, charsmax(szReasonFmt), "\d[\y%s\d]", szReason)
+	}
+	return szReasonFmt
 }
 
 GetTimeAsString(seconds)
