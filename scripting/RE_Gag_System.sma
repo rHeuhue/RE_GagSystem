@@ -696,6 +696,9 @@ public CommandSayExecuted(id)
 	read_args(szMessage, charsmax(szMessage));
 	remove_quotes(szMessage);
 
+	if (IsUserGagged(id) == GAG_YES)
+		return PLUGIN_HANDLED;
+
 	if (get_user_flags(id) & ADMIN_IMMUNITY && gp_IgnoreAdmins_Immunity)
 		return PLUGIN_CONTINUE;
 
@@ -740,11 +743,6 @@ public CommandSayExecuted(id)
 	if (is_user_spamming(id, szMessage) && IsUserGagged(id, false) == GAG_NOT)
 	{
 		return PLUGIN_CONTINUE;
-	}
-
-	if (IsUserGagged(id) == GAG_YES)
-	{
-		return PLUGIN_HANDLED;
 	}
 
 	copy(g_szPlayerLastMessage[id], charsmax(g_szPlayerLastMessage[]), fmt("\d[\y%s\d]", szMessage));
