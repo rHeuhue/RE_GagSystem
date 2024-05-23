@@ -696,6 +696,8 @@ public CommandSayExecuted(id)
 	read_args(szMessage, charsmax(szMessage));
 	remove_quotes(szMessage);
 
+	copy(g_szPlayerLastMessage[id], charsmax(g_szPlayerLastMessage[]), fmt("\d[\y%s\d]", szMessage));
+
 	if (IsUserGagged(id) == GAG_YES)
 		return PLUGIN_HANDLED;
 
@@ -744,8 +746,6 @@ public CommandSayExecuted(id)
 	{
 		return PLUGIN_CONTINUE;
 	}
-
-	copy(g_szPlayerLastMessage[id], charsmax(g_szPlayerLastMessage[]), fmt("\d[\y%s\d]", szMessage));
 
 	return PLUGIN_CONTINUE;
 }
