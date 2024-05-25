@@ -698,6 +698,18 @@ public CommandSayExecuted(id)
 
 	copy(g_szPlayerLastMessage[id], charsmax(g_szPlayerLastMessage[]), fmt("\d[\y%s\d]", szMessage));
 
+	if (g_iTotalPhrases[WHITE] > 0 && IsUserGagged(id, false) == GAG_YES)
+	{
+		for (new i = 0; i < g_iTotalPhrases[WHITE]; i++)
+		{
+			ArrayGetString(Array:g_aList[WHITE], i, szExtraChecks, charsmax(szExtraChecks));
+			if (equal(szMessage, szExtraChecks))
+			{
+				return PLUGIN_CONTINUE;
+			}
+		}
+	}
+
 	if (IsUserGagged(id) == GAG_YES)
 		return PLUGIN_HANDLED;
 
@@ -726,18 +738,6 @@ public CommandSayExecuted(id)
 			{
 				GagUser(g_szName[id], g_szIP[id], gp_iAutoGagTime_BadWords, gp_szReasonBadWords, fmt("[%s]", szMessage), gp_szAdminBadWords);
 				return PLUGIN_HANDLED;
-			}
-		}
-	}
-
-	if (g_iTotalPhrases[WHITE] > 0 && IsUserGagged(id, false) == GAG_YES)
-	{
-		for (new i = 0; i < g_iTotalPhrases[WHITE]; i++)
-		{
-			ArrayGetString(Array:g_aList[WHITE], i, szExtraChecks, charsmax(szExtraChecks));
-			if (equal(szMessage, szExtraChecks))
-			{
-				return PLUGIN_CONTINUE;
 			}
 		}
 	}
