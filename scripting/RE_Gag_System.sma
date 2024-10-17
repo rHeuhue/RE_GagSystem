@@ -11,7 +11,7 @@
 #pragma dynamic 32768
 
 #define PLUGIN "RE: Gag System"
-#define VERSION "1.6"
+#define VERSION "1.7"
 
 #define LOG_GAGS
 #define MAX_REASON_LENGHT 64
@@ -81,7 +81,6 @@ new const g_szLogFile[] = "addons/amxmodx/logs/gag_system.log";
 
 new g_iNVaultHandle, Regex:g_iRegexIPPattern, g_iUnused, g_iThinkingEnt;
 new g_iUserTarget[MAX_PLAYERS + 1], bool:g_blIsUserMuted[MAX_PLAYERS + 1];
-new g_GagForward, g_UngagForward;
 
 new g_iMenuPosition[MAX_PLAYERS + 1],
 	g_iMenuPlayers[MAX_PLAYERS + 1][MAX_PLAYERS],
@@ -163,6 +162,7 @@ new const g_szFileNames[eFileNames][] =
 
 new const g_szFolderName[] = "RE_Gag_System";
 
+new g_iFwd_Gag_User, g_iFwd_UnGag_User, g_iFwd_Return;
 
 public plugin_init()
 {
@@ -171,9 +171,6 @@ public plugin_init()
 
 	register_clcmd("say", "CommandSayExecuted");
 	register_clcmd("say_team", "CommandSayExecuted");
-
-	g_GagForward = CreateMultiForward("user_gagged", ET_IGNORE, FP_CELL);
-	g_UngagForward = CreateMultiForward("user_ungagged", ET_IGNORE, FP_CELL);
 
 	bind_pcvar_string(create_cvar("regs_chat_prefix", "!g[RE: GagSystem]!n", FCVAR_NONE, "Prefix to show before chat messages"), g_pCvarSetting[CHAT_PREFIX], charsmax(g_pCvarSetting[CHAT_PREFIX]));
 
@@ -259,6 +256,9 @@ public plugin_init()
 	g_iThinkingEnt = rg_create_entity("info_target");
 	set_entvar(g_iThinkingEnt, var_nextthink, get_gametime() + 0.1);
 	SetThink(g_iThinkingEnt, "RG__Entity_Think");
+
+	g_iFwd_Gag_User = CreateMultiForward("REGS_Gag_User", ET_IGNORE, FP_CELL, FP_STRING, FP_STRING, FP_STRING, FP_STRING, FP_STRING, FP_STRING, FP_STRING, FP_STRING);
+	g_iFwd_UnGag_User = CreateMultiForward("REGS_UnGag_User", ET_IGNORE, FP_CELL, FP_STRING);
 
 	AutoExecConfig(true, g_szFileNames[F_SETTINGS], g_szFolderName);
 }
@@ -1394,6 +1394,7 @@ UngagUser(szName[], szIP[], szAdmin[])
 	copy(g_szDiscordReplacements[GAG_REASON], charsmax(g_szDiscordReplacements[GAG_REASON]), GetGaggedPlayerInfo_Reason_Discord(szIP));
 	#endif
 
+	new id = find_player_ex(FindPlayer_MatchIP, szIP);
 
 	nvault_remove(g_iNVaultHandle, szIP);
 
@@ -1410,13 +1411,6 @@ UngagUser(szName[], szIP[], szAdmin[])
 		formatex(szHudMessage, charsmax(szHudMessage), "%s has been ungagged by %s", szName, szAdmin);
 	}
 
-	new id = find_player_ex(FindPlayer_MatchIP, szIP);
-	if (id != 0)
-	{
-		g_iSpamCount[id] = 0;
-		ExecuteForward(g_UngagForward, g_iUnused, id);
-	}
-
 	new iPlayers[MAX_PLAYERS], iNum, iPlayer;
 	get_players(iPlayers, iNum);
 	
@@ -1424,7 +1418,7 @@ UngagUser(szName[], szIP[], szAdmin[])
 	{
 		iPlayer = iPlayers[iNum];
 		
-		if (g_pCvarSetting[HUD_SHOW] && g_bPlayerShuwHudMessage[id])
+		if (g_pCvarSetting[HUD_SHOW] && g_bPlayerShuwHudMessage[iPlayer])
 		{
 			rg_send_hudmessage(iPlayer, szHudMessage, 0.05, 0.30, random(256), random_num(100, 255), random(256), 150, 5.0, 0.10, 0.20, -1, 2, random_num(0, 100), random_num(0, 100), random_num(0, 100), 200, 2.0);
 		}
@@ -1454,6 +1448,12 @@ UngagUser(szName[], szIP[], szAdmin[])
 
 	copy(g_szDiscordReplacements[GAG_TIME], charsmax(g_szDiscordReplacements[GAG_TIME]), "N/A");
 
+	if (id != 0)
+	{
+		g_iSpamCount[id] = 0;
+		ExecuteForward(g_iFwd_UnGag_User, g_iFwd_Return, id, szName);
+	}
+
 	#if defined GRIP_MODULE
 	send_report(id);
 	#endif
@@ -1477,13 +1477,6 @@ GagUser(szName[], szIP[], iDuration, szReason[], szReasonAdminOnly[], szAdminNam
 	{
 		copy(szResult, charsmax(szResult), "Player is already gagged.");
 		return szResult;
-	}
-
-	new id = find_player_ex(FindPlayer_MatchIP, szIP);
-
-	if (id != 0)
-	{
-		ExecuteForward(g_GagForward, g_iUnused, id);
 	}
 
 	new szValue[512];
@@ -1516,6 +1509,7 @@ GagUser(szName[], szIP[], iDuration, szReason[], szReasonAdminOnly[], szAdminNam
 	
 	emit_sound(0, CHAN_AUTO, g_szGagSound, 1.0, ATTN_NORM, SND_SPAWNING, PITCH_NORM);
 	
+	new id = find_player_ex(FindPlayer_MatchIP, szIP);
 
 	#if defined LOG_GAGS
 	log_to_file(g_szLogFile, "ADMIN: %s | PLAYER: %s [IP: %s] | REASON: %s | TIME: %s", szAdminName, szName, szIP, szReason, GetTimeAsString(iDuration * 60));
@@ -1525,8 +1519,9 @@ GagUser(szName[], szIP[], iDuration, szReason[], szReasonAdminOnly[], szAdminNam
 	copy(g_szDiscordReplacements[ADMIN_NAME], charsmax(g_szDiscordReplacements[ADMIN_NAME]), szAdminName);
 	copy(g_szDiscordReplacements[PLAYER_NAME], charsmax(g_szDiscordReplacements[PLAYER_NAME]), szName);
 
-	new szAuthID[2][MAX_AUTHID_LENGTH];
+	new szAuthID[2][MAX_AUTHID_LENGTH], szAdminIP[MAX_IP_LENGTH];
 	get_user_authid(iAdmin_Id, szAuthID[0], charsmax(szAuthID[]));
+	get_user_ip(iAdmin_Id, szAdminIP, charsmax(szAdminIP), 1);
 	get_user_authid(id, szAuthID[1], charsmax(szAuthID[]));
 
 	copy(g_szDiscordReplacements[ADMIN_ID], charsmax(g_szDiscordReplacements[ADMIN_ID]), szAuthID[0]);
@@ -1537,6 +1532,11 @@ GagUser(szName[], szIP[], iDuration, szReason[], szReasonAdminOnly[], szAdminNam
 	copy(g_szDiscordReplacements[GAG_ACTION], charsmax(g_szDiscordReplacements[GAG_ACTION]), "PLAYER GAG");
 	copy(g_szDiscordReplacements[GAG_REASON], charsmax(g_szDiscordReplacements[GAG_REASON]), szReason);
 	copy(g_szDiscordReplacements[GAG_TIME], charsmax(g_szDiscordReplacements[GAG_TIME]), GetTimeAsString(iDuration * 60));
+
+	if (id != 0)
+	{
+		ExecuteForward(g_iFwd_Gag_User, g_iFwd_Return, id, szName, szAuthID[1], szIP, szAdminName, szAuthID[0], szAdminIP, szReason, g_szDiscordReplacements[GAG_TIME]);
+	}
 	
 	nvault_set(g_iNVaultHandle, szIP, szValue);
 
@@ -1591,7 +1591,7 @@ IsUserGagged(id, bool:print = true)
 	}
 
 	g_blIsUserMuted[id] = false;
-	ExecuteForward(g_UngagForward, g_iUnused, id);
+	ExecuteForward(g_iFwd_UnGag_User, g_iFwd_Return, id, szGaggedName);
 
 	nvault_remove(g_iNVaultHandle, szIP);
 
