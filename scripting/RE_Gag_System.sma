@@ -951,9 +951,12 @@ public CommandSayExecuted(id)
 		}
 	}
 
-	if (is_user_spamming(id, szMessage) && IsUserGagged(id, false) == GAG_NOT && g_pCvarSetting[AUTOGAG_SPAM_CHAT])
+	if (g_pCvarSetting[AUTOGAG_SPAM_CHAT])
 	{
-		return PLUGIN_CONTINUE;
+		if (is_user_spamming(id, szMessage) && IsUserGagged(id, false) == GAG_NOT)
+		{
+			return PLUGIN_CONTINUE;
+		}
 	}
 
 	return PLUGIN_CONTINUE;
